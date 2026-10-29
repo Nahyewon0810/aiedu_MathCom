@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#f5f7fc" />
+  <title>MediaPipe 기반 좌표평면 학습 프로그램</title>
+  <style>
+    :root { color-scheme: light; --ink:#182238; --muted:#66738a; --line:#e4eaf3; --primary:#4359d3; --primary-lite:#edf0ff; --bg:#f5f7fc; --good:#15805c; --orange:#f17c45; --blue:#4e76e8; --green:#16a376; --shadow:0 16px 42px rgba(32,48,87,.065); }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); font-family:Pretendard,"Apple SD Gothic Neo","Noto Sans KR",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:var(--ink); font-size:15px; line-height:1.5; }
+    button,input,select { font:inherit; }
+    button { cursor:pointer; border:0; }
+    button:disabled { opacity:.48; cursor:not-allowed; }
+    button:focus-visible,input:focus-visible,select:focus-visible { outline:3px solid #9baeff; outline-offset:2px; }
+    .shell { max-width:1390px; padding:25px 32px 38px; margin:auto; }
+    .top { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:24px; }
+    .brand { display:flex; align-items:center; gap:14px; }
+    .brand-mark { width:52px; height:52px; flex:none; border-radius:16px; display:grid; place-items:center; color:white; background:linear-gradient(135deg,#5268e7,#8976ea); box-shadow:0 9px 20px #5268e72e; }
+    .brand-mark svg { width:30px; height:30px; }
+    h1,h2,h3,p { margin:0; }
+    .brand h1 { font-weight:850; letter-spacing:-.7px; font-size:25px; }
+    .brand p { color:var(--muted); font-size:13px; margin-top:2px; }
+    .pill { display:inline-flex; align-items:center; gap:7px; border-radius:99px; border:1px solid #dce4f0; background:white; padding:8px 13px; color:#53627d; font-size:12px; font-weight:750; white-space:nowrap; }
+    .status-led { width:8px; height:8px; border-radius:50%; background:#b5c0d0; flex:none; }
+    .status-led.good { background:#22ad7d; box-shadow:0 0 0 4px #dff8ed; }
+    .status-led.wait { background:#f6ac42; box-shadow:0 0 0 4px #fff1d8; }
+    .status-led.bad { background:#dc5e61; box-shadow:0 0 0 4px #ffe9e8; }
+    .mode-panel { background:white; border:1px solid var(--line); border-radius:20px; box-shadow:var(--shadow); padding:9px; display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:15px; }
+    .mode-btn { border-radius:14px; padding:16px 12px; background:transparent; text-align:left; display:flex; align-items:center; gap:12px; color:#606d86; transition:background .15s,color .15s; }
+    .mode-btn:hover { background:#f4f6fc; }
+    .mode-btn.active { background:var(--primary-lite); color:#3448b4; box-shadow:inset 0 0 0 1px #dce3ff; }
+    .mode-icon { flex:none; width:39px; height:39px; background:#f1f4f9; border-radius:12px; display:grid; place-items:center; font-size:21px; }
+    .mode-btn.active .mode-icon { background:#dfe5ff; }
+    .mode-btn strong { display:block; font-size:15px; letter-spacing:-.4px; }
+    .mode-btn small { display:block; font-size:12px; margin-top:2px; opacity:.83; }
+    .toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:12px; background:white; border:1px solid var(--line); border-radius:18px; padding:14px 18px; margin-bottom:16px; }
+    .toolbar-group { display:flex; flex-wrap:wrap; gap:9px; align-items:center; }
+    .toolbar-title { font-size:13px; color:#56647f; font-weight:800; white-space:nowrap; }
+    select,input[type=number] { background:#fff; border:1px solid #d7dfec; border-radius:10px; color:var(--ink); min-height:41px; padding:8px 11px; }
+    select { padding-right:29px; }
+    .divider-v { height:32px; width:1px; background:var(--line); margin:0 4px; }
+    .toolbar-spacer { flex:1; }
+    .btn { border-radius:11px; padding:10px 15px; min-height:41px; font-size:14px; font-weight:800; display:inline-flex; align-items:center; justify-content:center; gap:7px; transition:transform .15s,background .15s; white-space:nowrap; }
+    .btn:hover:not(:disabled) { transform:translateY(-1px); }
+    .btn.primary { background:var(--primary); color:#fff; }
+    .btn.primary:hover { background:#384bb9; }
+    .btn.ghost { background:#f1f4fb; color:#4f607a; }
+    .btn.outline { background:#fff; border:1px solid #d6deed; color:#455776; }
+    .btn.orange { color:white; background:#ec7848; }
+    .btn.stop { color:#c54f44; background:#fff1ed; border:1px solid #ffded7; }
+    .btn.success { color:#147650; background:#ddf7ed; }
+    .btn.small { font-size:13px; min-height:36px; padding:8px 11px; }
+    .range-custom { display:none; background:#fff; margin:-4px 0 16px; border:1px solid var(--line); border-radius:16px; padding:17px 18px; }
+    .range-custom.show { display:block; }
+    .range-fields { display:flex; align-items:end; gap:12px; flex-wrap:wrap; }
+    .field { display:flex; flex-direction:column; gap:5px; }
+    .field label { color:#617089; font-size:12px; font-weight:750; }
+    .field input { width:108px; }
+    .hint { color:var(--muted); font-size:12px; }
+    .error { color:#c5454b; font-size:12px; font-weight:700; min-height:0; }
+    .main { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:17px; align-items:stretch; }
+    .pane { background:white; border:1px solid var(--line); border-radius:20px; box-shadow:var(--shadow); padding:19px; min-width:0; }
+    .pane-head { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:13px; }
+    .pane-head h2 { font-size:17px; letter-spacing:-.45px; }
+    .pane-head small { font-size:12px; color:var(--muted); font-weight:650; }
+    .pane-head-right { display:flex; align-items:center; gap:8px; }
+    .info-chip { background:#f2f5fb; color:#62708b; border-radius:8px; padding:5px 9px; font-weight:800; font-size:11px; white-space:nowrap; }
+    .camera-stage { width:100%; aspect-ratio:1; border-radius:15px; overflow:hidden; background:linear-gradient(145deg,#1e293e,#34415c); display:grid; place-items:center; position:relative; isolation:isolate; }
+    #video, #cameraOverlay { width:100%; height:100%; object-fit:contain; position:absolute; inset:0; transform:scaleX(-1); display:none; }
+    .camera-stage.live #video,.camera-stage.live #cameraOverlay { display:block; }
+    #cameraOverlay { pointer-events:none; }
+    .camera-placeholder { color:white; text-align:center; max-width:310px; padding:26px; }
+    .camera-placeholder .hand-icon { font-size:55px; line-height:1.2; margin-bottom:18px; filter:drop-shadow(0 6px 12px #0003); }
+    .camera-placeholder h3 { font-size:19px; margin-bottom:7px; }
+    .camera-placeholder p { color:#c1ccde; font-size:13px; line-height:1.75; }
+    .camera-stage.live .camera-placeholder { display:none; }
+    .camera-corner { position:absolute; top:15px; left:15px; z-index:2; background:#0b1724b8; backdrop-filter:blur(5px); color:#f2f7ff; border-radius:9px; padding:7px 10px; font-size:11px; font-weight:800; }
+    .camera-stage:not(.live) .camera-corner { display:none; }
+    .camera-footer { display:flex; justify-content:space-between; align-items:center; margin-top:13px; gap:10px; flex-wrap:wrap; }
+    .status-row { display:flex; gap:8px; align-items:center; min-width:0; }
+    .status-text { font-size:12px; font-weight:650; color:#5b6982; }
+    .graph-stage { width:100%; aspect-ratio:1; border:1px solid #edf1f7; border-radius:15px; background:#fff; overflow:hidden; position:relative; }
+    #graph { width:100%; height:100%; display:block; touch-action:none; }
+    #graph.demo-active { cursor:crosshair; }
+    .graph-note { position:absolute; bottom:13px; right:13px; background:#f7f9fded; border-radius:7px; padding:5px 8px; font-size:10px; color:#64718a; pointer-events:none; }
+    .graph-summary { display:flex; flex-wrap:wrap; gap:10px; margin-top:13px; }
+    .metric { background:#f5f7fc; border-radius:12px; padding:10px 13px; flex:1; min-width:130px; }
+    .metric-label { color:#7d8ba1; font-size:11px; font-weight:750; margin-bottom:3px; }
+    .metric-value { font-size:19px; font-weight:850; letter-spacing:-.3px; font-variant-numeric:tabular-nums; }
+    .metric-value.orange-text { color:#e47443; }
+    .metric-value.green-text { color:#128565; }
+    .control-panel { background:#fff; border:1px solid var(--line); border-radius:20px; box-shadow:var(--shadow); padding:20px 22px; margin-top:17px; }
+    .control-header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:15px; }
+    .control-header h2 { font-size:17px; }
+    .control-header p { font-size:12px; color:var(--muted); }
+    .mode-content { display:none; }
+    .mode-content.active { display:block; }
+    .control-row { display:flex; align-items:center; gap:13px; flex-wrap:wrap; }
+    .control-row + .control-row { margin-top:14px; }
+    .mini-label { display:block; font-size:12px; font-weight:750; color:#66758d; margin-bottom:5px; }
+    .segmented { display:inline-flex; border-radius:11px; border:1px solid #dfe5f0; padding:4px; background:#f6f8fc; gap:3px; }
+    .seg-btn { padding:8px 16px; border-radius:8px; color:#6a7690; background:transparent; font-weight:800; font-size:13px; }
+    .seg-btn.active { background:#fff; color:#344bc5; box-shadow:0 2px 7px #1c2e5a1a; }
+    .field-inline { display:flex; gap:9px; align-items:center; }
+    .field-inline input { width:92px; }
+    .toggle { display:inline-flex; align-items:center; gap:9px; cursor:pointer; font-size:13px; color:#53627a; font-weight:750; }
+    .toggle input { appearance:none; -webkit-appearance:none; width:37px; height:21px; border-radius:14px; background:#b4bfd0; position:relative; margin:0; cursor:pointer; transition:background .2s; }
+    .toggle input:checked { background:var(--primary); }
+    .toggle input::before { content:""; position:absolute; top:3px; left:3px; width:15px; height:15px; border-radius:50%; background:#fff; transition:transform .2s; }
+    .toggle input:checked::before { transform:translateX(16px); }
+    .instruction { color:#66738c; font-size:13px; }
+    .success-box { display:none; align-items:center; gap:11px; background:#e7f8ee; border:1px solid #b7ebcb; border-radius:12px; color:#14734c; padding:13px 15px; margin-top:14px; font-weight:850; }
+    .success-box.show { display:flex; }
+    .progress { height:5px; border-radius:10px; background:#eff2f7; overflow:hidden; width:100%; margin-top:13px; max-width:350px; }
+    .progress > span { display:block; height:100%; width:0; background:#19a577; transition:width .5s linear; }
+    .tiny-helper { margin-top:10px; color:#7d889b; font-size:12px; }
+    .footer { margin-top:17px; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; font-size:12px; color:#77849b; padding:0 6px; }
+    .footer a { color:#6674bf; }
+    .visually-hidden { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+    [hidden] { display:none !important; }
+    @media (max-width:1050px) { .shell { padding:21px; } .mode-btn { gap:8px; } .mode-btn small { display:none; } .main { gap:13px; } .pane { padding:15px; } }
+    @media (max-width:740px) { .shell { padding:13px; } .top { align-items:start; margin:5px 0 18px; } .brand h1 { font-size:20px; } .brand-mark { width:43px; height:43px; } .top > .pill { display:none; } .mode-panel { gap:3px; } .mode-btn { flex-direction:column; align-items:center; padding:10px 4px; } .mode-icon { width:33px; height:33px; font-size:17px; } .mode-btn strong { font-size:12px; text-align:center; } .toolbar { padding:12px; } .divider-v { display:none; } .main { grid-template-columns:1fr; } .pane { padding:14px; } .camera-stage,.graph-stage { aspect-ratio:4/3; } .graph-stage { aspect-ratio:1; } .control-panel { padding:16px; } .field-inline input { width:74px; } .range-fields { gap:8px; } .field input { width:95px; } }
+    @media (prefers-reduced-motion:reduce) { *,*::before,*::after { transition:none!important; } }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="top">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true"><svg viewBox="0 0 36 36" fill="none"><path d="M7 27V8M7 27h23" stroke="white" stroke-width="2.2" stroke-linecap="round"/><path d="M11 21l7-8 6 5 6-9" stroke="white" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="18" cy="13" r="2.5" fill="#ffca81"/></svg></div>
+        <div><h1>손끝 좌표 교실</h1><p>손을 움직이며 배우는 좌표평면과 그래프 · 중학교 1학년</p></div>
+      </div>
+      <div class="pill"><span class="status-led" id="topLed"></span><span id="topStatus">카메라 연결 전</span></div>
+    </header>
+
+    <nav class="mode-panel" aria-label="학습 모드 선택">
+      <button type="button" class="mode-btn active" data-mode="explore" aria-pressed="true"><span class="mode-icon">🧭</span><span><strong>좌표 탐색하기</strong><small>움직임에 따른 좌표 관찰</small></span></button>
+      <button type="button" class="mode-btn" data-mode="target" aria-pressed="false"><span class="mode-icon">🎯</span><span><strong>좌표 찾아가기</strong><small>목표 위치에 도착하기</small></span></button>
+      <button type="button" class="mode-btn" data-mode="draw" aria-pressed="false"><span class="mode-icon">✏️</span><span><strong>그래프 그리기</strong><small>이동 경로 기록하기</small></span></button>
+    </nav>
+
+    <section class="toolbar" aria-label="공통 설정">
+      <div class="toolbar-group"><span class="toolbar-title">좌표 범위</span>
+        <select id="rangePreset" aria-label="좌표 범위 선택">
+          <option value="3">−3 ~ 3</option><option value="5" selected>−5 ~ 5 (기본)</option><option value="10">−10 ~ 10</option><option value="custom">직접 설정</option>
+        </select>
+      </div>
+      <div class="divider-v" aria-hidden="true"></div>
+      <span class="hint" id="rangeDescription">x축 −5~5 · y축 −5~5</span>
+      <div class="toolbar-spacer"></div>
+      <button type="button" id="demoBtn" class="btn ghost" title="웹캠 없이 좌표평면을 마우스로 움직여 보는 연습">🖱️ 마우스 연습</button>
+      <button type="button" id="cameraBtn" class="btn primary">📷 카메라 켜기</button>
+    </section>
+    <section class="range-custom" id="customBox" aria-label="사용자 지정 좌표 범위">
+      <div class="range-fields">
+        <div class="field"><label for="minX">x축 최솟값</label><input id="minX" type="number" step="1" min="-10" max="10" value="-5"></div>
+        <div class="field"><label for="maxX">x축 최댓값</label><input id="maxX" type="number" step="1" min="-10" max="10" value="5"></div>
+        <div class="field"><label for="minY">y축 최솟값</label><input id="minY" type="number" step="1" min="-10" max="10" value="-5"></div>
+        <div class="field"><label for="maxY">y축 최댓값</label><input id="maxY" type="number" step="1" min="-10" max="10" value="5"></div>
+        <button type="button" id="applyRange" class="btn primary">범위 적용</button>
+      </div>
+      <p class="hint" style="margin-top:9px">각 경계값은 −10부터 10 사이의 정수이며, x축과 y축 모두 0을 포함해야 해요.</p>
+      <div class="error" id="rangeError" role="alert"></div>
+    </section>
+
+    <main class="main">
+      <section class="pane" aria-label="웹캠 패널">
+        <div class="pane-head"><h2>📷 실시간 웹캠</h2><div class="pane-head-right"><span class="info-chip">검지 끝 추적</span></div></div>
+        <div class="camera-stage" id="cameraStage">
+          <video id="video" autoplay muted playsinline></video>
+          <canvas id="cameraOverlay" aria-hidden="true"></canvas>
+          <div class="camera-corner">● LIVE · 좌우 반전 화면</div>
+          <div class="camera-placeholder" id="cameraPlaceholder"><div class="hand-icon">👋</div><h3 id="placeholderTitle">손을 보여주세요!</h3><p id="placeholderText">카메라를 켠 뒤 검지 끝을 움직이면<br>오른쪽 좌표평면의 점이 따라 움직여요.</p></div>
+        </div>
+        <div class="camera-footer"><div class="status-row"><span class="status-led" id="cameraLed"></span><span class="status-text" id="cameraStatus" role="status" aria-live="polite">카메라가 꺼져 있어요.</span></div><span class="hint">촬영 영상은 저장하지 않아요.</span></div>
+      </section>
+
+      <section class="pane" aria-label="좌표평면 패널">
+        <div class="pane-head"><h2>📈 좌표평면</h2><span class="info-chip" id="graphBadge">−5 ~ 5</span></div>
+        <div class="graph-stage" id="graphStage"><canvas id="graph" aria-label="현재 점과 이동 경로가 표시되는 좌표평면"></canvas><div class="graph-note" id="graphDemoNote" hidden>마우스를 움직여 점을 이동해 보세요</div></div>
+        <div class="graph-summary">
+          <div class="metric"><div class="metric-label">현재 좌표</div><div class="metric-value orange-text" id="currentLabel">(—, —)</div></div>
+          <div class="metric" id="targetMetric" hidden><div class="metric-label">목표 좌표</div><div class="metric-value green-text" id="targetLabel">미설정</div></div>
+          <div class="metric" id="drawMetric" hidden><div class="metric-label">그리기 상태</div><div class="metric-value" id="drawLabel" style="font-size:17px">대기 중</div></div>
+        </div>
+      </section>
+    </main>
+
+    <section class="control-panel" aria-label="학습 활동 조작">
+      <div class="control-header"><div><h2 id="controlTitle">좌표 탐색하기</h2><p id="controlDesc">검지 끝을 상하좌우로 움직이며 x좌표와 y좌표가 어떻게 변하는지 살펴보세요.</p></div><span class="info-chip" id="controlTag">활동 1</span></div>
+      <div class="mode-content active" id="exploreControls"><div class="control-row"><span class="instruction">💡 손을 오른쪽으로 움직이면 x값이 커지고, 위로 움직이면 y값이 커져요.</span><button type="button" id="exploreReset" class="btn outline small">↺ 표시 초기화</button></div></div>
+      <div class="mode-content" id="targetControls">
+        <div class="control-row"><div class="segmented" aria-label="목표 설정 방법"><button type="button" class="seg-btn active" data-target-type="auto" aria-pressed="true">자동 출제</button><button type="button" class="seg-btn" data-target-type="custom" aria-pressed="false">직접 입력</button></div><label class="toggle"><input type="checkbox" id="showGoal" checked><span>목표점 표시</span></label></div>
+        <div class="control-row" id="autoTargetRow"><button type="button" id="newGoal" class="btn primary">🎲 새로운 좌표 출제</button><span class="instruction">프로그램이 현재 범위에서 좌표를 골라 줘요.</span></div>
+        <div class="control-row" id="customTargetRow" hidden><span class="toolbar-title">목표 좌표</span><div class="field-inline"><label for="targetX">x</label><input id="targetX" type="number" step="1" value="2" aria-label="목표 x좌표"><label for="targetY">y</label><input id="targetY" type="number" step="1" value="3" aria-label="목표 y좌표"></div><button type="button" class="btn primary" id="setGoal">목표 좌표 설정</button></div>
+        <p class="error" role="alert" id="targetError"></p>
+        <div class="progress" aria-label="목표 도달 유지 시간"><span id="goalProgress"></span></div>
+        <div class="success-box" id="successBox" role="status" aria-live="polite"><span style="font-size:22px">🎉</span><span>목표 좌표에 도착했어요! 새로운 좌표에도 도전해 보세요.</span></div>
+        <p class="tiny-helper">목표 위치에 0.5초 동안 머무르면 성공! 목표점을 숨겨도 성공 판정은 동일해요.</p>
+      </div>
+      <div class="mode-content" id="drawControls"><div class="control-row"><button type="button" id="drawingBtn" class="btn orange">✏️ 그리기 시작</button><button type="button" id="clearDrawing" class="btn outline">↺ 그래프 초기화</button><button type="button" id="saveDrawing" class="btn outline">↓ PNG 저장</button><span class="instruction" id="drawHelp">그리기 시작을 누르면 기록되고, 중지를 누르면 멈춰요.</span></div></div>
+    </section>
+    <footer class="footer"><span>🔒 손 인식과 좌표 계산은 이 기기에서 진행됩니다. 별도의 백엔드나 회원가입은 필요하지 않아요.</span><span>MediaPipe 모델·라이브러리 최초 로딩에는 인터넷 연결이 필요해요. <a href="https://developers.google.com/edge/mediapipe/solutions/vision/hand_landmarker/web_js" target="_blank" rel="noopener noreferrer">기술 정보</a></span></footer>
+  </div>
+
+  <script type="module">
+    const $ = (id) => document.getElementById(id);
+    const clamp = (n,a,b) => Math.max(a,Math.min(b,n));
+    const state = {
+      mode:'explore', bounds:{minX:-5,maxX:5,minY:-5,maxY:5}, rangePreset:'5',
+      demo:false, cameraOn:false, starting:false, stream:null, landmarker:null, runToken:0, raf:0,
+      lastVideoTime:-1, lastDetectTime:-1, smooth:null, current:null, recognized:false,
+      targetType:'auto', target:null, goalVisible:true, solved:false, successTimer:null,
+      drawing:false, strokes:[], activeStroke:null, plot:null, renderPending:false,
+      lastDetectionAlert:0
+    };
+    const graph = $('graph');
+    const gctx = graph.getContext('2d');
+    const video = $('video');
+    const overlay = $('cameraOverlay');
+    const octx = overlay.getContext('2d');
+    let graphWidth=400,graphHeight=400,graphDpr=1;
+    const MEDIA_VERSION='1.1.1';
+    const MEDIA_CDN=`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIA_VERSION}`;
+    const MODEL_URL='https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+
+    function setCamStatus(text,kind='idle') {
+      $('cameraStatus').textContent=text;
+      $('topStatus').textContent=state.demo?'마우스 연습 중':text;
+      for (const led of [$('cameraLed'),$('topLed')]) led.className='status-led'+(kind==='good'?' good':kind==='wait'?' wait':kind==='bad'?' bad':'');
+    }
+    function showError(id,message){ $(id).textContent=message; }
+    function clearSuccess(){
+      clearTimeout(state.successTimer); state.successTimer=null; state.solved=false;
+      $('successBox').classList.remove('show');
+      $('goalProgress').style.transition='none'; $('goalProgress').style.width='0%';
+    }
+    function updateGoalStatus(){
+      $('targetLabel').textContent=state.target?`(${state.target.x}, ${state.target.y})`:'미설정';
+      $('targetMetric').hidden=state.mode!=='target';
+      $('showGoal').checked=state.goalVisible;
+    }
+    function checkGoal(){
+      if(state.mode!=='target' || !state.target || state.solved || !state.recognized || !state.current){
+        if(!state.solved){ clearTimeout(state.successTimer); state.successTimer=null; $('goalProgress').style.transition='none';$('goalProgress').style.width='0%'; }
+        return;
+      }
+      const hit=state.current.x===state.target.x&&state.current.y===state.target.y;
+      if(!hit) {
+        clearTimeout(state.successTimer); state.successTimer=null;
+        $('goalProgress').style.transition='none';$('goalProgress').style.width='0%';
+        return;
+      }
+      if(state.successTimer!==null) return;
+      $('goalProgress').style.transition='none';$('goalProgress').style.width='0%';
+      // Trigger a CSS animation that spans the 0.5-second hold interval.
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{if(state.successTimer!==null){$('goalProgress').style.transition='width .5s linear';$('goalProgress').style.width='100%';}}));
+      state.successTimer=setTimeout(()=>{
+        state.successTimer=null;
+        if(state.mode==='target' && state.recognized && state.current && state.target && state.current.x===state.target.x && state.current.y===state.target.y){
+          state.solved=true; $('successBox').classList.add('show');
+        }
+      },500);
+    }
+    function resetTracking(){
+      state.smooth=null;state.current=null;state.recognized=false; state.activeStroke=null;
+      $('currentLabel').textContent='(—, —)';
+      clearSuccess(); requestGraph();
+    }
+    function chooseGoal(goal){
+      clearSuccess();state.target=goal;state.activeStroke=null;
+      updateGoalStatus();requestGraph();
+    }
+    function newRandomGoal(){
+      const b=state.bounds; let x,y;let tries=0;
+      do {x=Math.floor(Math.random()*(b.maxX-b.minX+1))+b.minX;y=Math.floor(Math.random()*(b.maxY-b.minY+1))+b.minY;tries++;}
+      while(state.target && state.target.x===x && state.target.y===y && tries<60);
+      chooseGoal({x,y});showError('targetError','');
+    }
+    function manualGoal(){
+      const a=$('targetX').value.trim(),b=$('targetY').value.trim();
+      const x=Number(a),y=Number(b),bounds=state.bounds;
+      if(!a||!b||!Number.isInteger(x)||!Number.isInteger(y)||x<bounds.minX||x>bounds.maxX||y<bounds.minY||y>bounds.maxY){
+        showError('targetError',`x는 ${bounds.minX}~${bounds.maxX}, y는 ${bounds.minY}~${bounds.maxY} 범위의 정수를 입력해 주세요.`);return;
+      }
+      showError('targetError','');chooseGoal({x,y});
+    }
+    function changeTargetType(t){
+      state.targetType=t;
+      document.querySelectorAll('[data-target-type]').forEach(b=>{let active=b.dataset.targetType===t;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));});
+      $('autoTargetRow').hidden=t!=='auto';$('customTargetRow').hidden=t!=='custom';
+      chooseGoal(null);showError('targetError','');
+      if(t==='auto')newRandomGoal();
+    }
+    function changeMode(mode){
+      if(!['explore','target','draw'].includes(mode))return;
+      state.mode=mode;stopDrawing();
+      document.querySelectorAll('[data-mode]').forEach(btn=>{const is=btn.dataset.mode===mode;btn.classList.toggle('active',is);btn.setAttribute('aria-pressed',String(is));});
+      ['explore','target','draw'].forEach(m=>$(m+'Controls').classList.toggle('active',m===mode));
+      $('drawMetric').hidden=mode!=='draw';$('targetMetric').hidden=mode!=='target';
+      const copy={explore:['좌표 탐색하기','검지 끝을 상하좌우로 움직이며 x좌표와 y좌표가 어떻게 변하는지 살펴보세요.','활동 1'],target:['좌표 찾아가기','화면에 제시된 좌표를 찾아가 보세요. 직접 좌표를 입력할 수도 있어요.','활동 2'],draw:['그래프 그리기','그리기 시작과 중지 버튼을 이용해 원하는 경로를 그려 보세요.','활동 3']};
+      $('controlTitle').textContent=copy[mode][0];$('controlDesc').textContent=copy[mode][1];$('controlTag').textContent=copy[mode][2];
+      if(mode==='target' && !state.target && state.targetType==='auto') newRandomGoal();
+      if(mode!=='target')clearSuccess();
+      updateGoalStatus();requestGraph();
+    }
+    function updateRangeUI(){
+      const b=state.bounds;
+      $('rangeDescription').textContent=`x축 ${b.minX}~${b.maxX} · y축 ${b.minY}~${b.maxY}`;
+      $('graphBadge').textContent=(b.minX===b.minY && b.maxX===b.maxY)?`${b.minX} ~ ${b.maxX}`:`x ${b.minX}~${b.maxX} / y ${b.minY}~${b.maxY}`;
+      $('rangePreset').value=state.rangePreset;
+      $('customBox').classList.toggle('show',state.rangePreset==='custom');
+    }
+    function askRangeChange(){
+      if(state.strokes.length || state.target || state.drawing){
+        return window.confirm('좌표 범위를 변경하면 그린 경로와 현재 목표가 초기화돼요. 변경할까요?');
+      }
+      return true;
+    }
+    function applyBounds(bounds,preset){
+      if(!askRangeChange())return false;
+      state.bounds=bounds;state.rangePreset=preset;state.strokes=[];state.activeStroke=null;state.target=null;
+      stopDrawing();resetTracking();
+      updateGoalStatus();clearSuccess();updateRangeUI();showError('targetError','');
+      requestGraph();return true;
+    }
+    function validateCustomRange(){
+      const ids=['minX','maxX','minY','maxY']; const raw=ids.map(id=>$(id).value.trim());
+      const arr=raw.map(Number);
+      if(raw.some(s=>!s)||arr.some(v=>!Number.isInteger(v)||v< -10||v>10))return null;
+      const [minX,maxX,minY,maxY]=arr;
+      if(minX>=maxX||minY>=maxY||minX>0||maxX<0||minY>0||maxY<0)return null;
+      return {minX,maxX,minY,maxY};
+    }
+    function setRangePreset(v){
+      if(v==='custom'){
+        state.rangePreset='custom';const b=state.bounds;
+        for(const id of ['minX','maxX','minY','maxY'])$(id).value=String(b[id]);
+        updateRangeUI();return;
+      }
+      const n=Number(v);
+      if(![3,5,10].includes(n))return;
+      if(!applyBounds({minX:-n,maxX:n,minY:-n,maxY:n},v))updateRangeUI();
+    }
+    function changeDrawingButton(){
+      $('drawingBtn').textContent=state.drawing?'■ 그리기 중지':'✏️ 그리기 시작';
+      $('drawingBtn').className='btn '+(state.drawing?'stop':'orange');
+      $('drawLabel').textContent=state.drawing?'기록 중':'대기 중';
+      $('drawLabel').style.color=state.drawing?'#e77940':'#29344e';
+      $('drawHelp').textContent=state.drawing?'손의 이동 경로를 기록하고 있어요. 중지를 누르면 멈춰요.':'그리기 시작을 누르면 기록되고, 중지를 누르면 멈춰요.';
+    }
+    function stopDrawing(){state.drawing=false;state.activeStroke=null;changeDrawingButton();}
+    function toggleDrawing(){
+      if(state.drawing){stopDrawing();}
+      else {state.drawing=true;state.activeStroke=null;changeDrawingButton();}
+      requestGraph();
+    }
+    function clearDrawing(){state.strokes=[];state.activeStroke=null;requestGraph();}
+    function recordPoint(point){
+      if(state.mode!=='draw'||!state.drawing)return;
+      if(!state.activeStroke){state.activeStroke=[];state.strokes.push(state.activeStroke);}
+      const prev=state.activeStroke[state.activeStroke.length-1];
+      if(!prev||prev.x!==point.x||prev.y!==point.y)state.activeStroke.push({x:point.x,y:point.y});
+    }
+    function updateCurrent(x,y){
+      const p={x,y};state.current=p;state.recognized=true;
+      $('currentLabel').textContent=`(${x}, ${y})`;
+      recordPoint(p);checkGoal();requestGraph();
+    }
+    function onHandLost(){
+      if(!state.recognized)return;
+      state.recognized=false;state.smooth=null;state.current=null;state.activeStroke=null;
+      $('currentLabel').textContent='(—, —)';checkGoal();requestGraph();
+      if(state.cameraOn)setCamStatus('손을 인식하지 못했어요. 화면에 손을 보여주세요.','wait');
+    }
+    function inputFromMediaPipe(nx,ny){
+      if(state.demo)return;
+      // The video is mirrored in CSS, so the normalized x value must be mirrored too.
+      const fx=1-clamp(nx,0,1), fy=clamp(ny,0,1);
+      if(!state.smooth)state.smooth={x:fx,y:fy};
+      else {const alpha=.40;state.smooth.x+=alpha*(fx-state.smooth.x);state.smooth.y+=alpha*(fy-state.smooth.y);}
+      const b=state.bounds;
+      const x=clamp(Math.round(b.minX+state.smooth.x*(b.maxX-b.minX)),b.minX,b.maxX);
+      const y=clamp(Math.round(b.maxY-state.smooth.y*(b.maxY-b.minY)),b.minY,b.maxY);
+      if(!state.recognized)setCamStatus('손 인식 중 · 좌표를 움직여 보세요.','good');
+      updateCurrent(x,y);
+    }
+    function resizeGraph(){
+      const box=graph.getBoundingClientRect();graphWidth=Math.max(240,box.width);graphHeight=Math.max(240,box.height);
+      graphDpr=Math.min(window.devicePixelRatio||1,2);
+      graph.width=Math.round(graphWidth*graphDpr);graph.height=Math.round(graphHeight*graphDpr);
+      requestGraph();
+    }
+    function makePlot(){
+      const b=state.bounds;
+      const pad={l:48,r:30,t:35,b:46};
+      const availW=Math.max(1,graphWidth-pad.l-pad.r),availH=Math.max(1,graphHeight-pad.t-pad.b);
+      const scale=Math.min(availW/(b.maxX-b.minX),availH/(b.maxY-b.minY));
+      const width=(b.maxX-b.minX)*scale,height=(b.maxY-b.minY)*scale;
+      const left=pad.l+(availW-width)/2,top=pad.t+(availH-height)/2;
+      return {b,scale,left,top,right:left+width,bottom:top+height,
+        pt:(x,y)=>({x:left+(x-b.minX)*scale,y:top+(b.maxY-y)*scale})};
+    }
+    function requestGraph(){
+      if(state.renderPending)return;
+      state.renderPending=true;
+      requestAnimationFrame(()=>{state.renderPending=false;renderGraph();});
+    }
+    function renderGraph(){
+      gctx.setTransform(graphDpr,0,0,graphDpr,0,0);
+      const ctx=gctx,w=graphWidth,h=graphHeight;
+      ctx.clearRect(0,0,w,h);ctx.fillStyle='#ffffff';ctx.fillRect(0,0,w,h);
+      const p=makePlot();state.plot=p;const b=p.b;
+      ctx.fillStyle='#fbfcff';ctx.fillRect(p.left,p.top,p.right-p.left,p.bottom-p.top);
+      ctx.strokeStyle='#e4e9f3';ctx.lineWidth=1;
+      const drawLine=(x1,y1,x2,y2)=>{ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();};
+      for(let x=b.minX;x<=b.maxX;x++){const q=p.pt(x,0);drawLine(q.x,p.top,q.x,p.bottom);}
+      for(let y=b.minY;y<=b.maxY;y++){const q=p.pt(0,y);drawLine(p.left,q.y,p.right,q.y);}
+      const o=p.pt(0,0);ctx.strokeStyle='#3c4d69';ctx.lineWidth=2.1;
+      drawLine(o.x,p.top,o.x,p.bottom);drawLine(p.left,o.y,p.right,o.y);
+      // Tick labels are skipped as necessary to prevent overlap for ranges up to 21 positions.
+      const sx=(b.maxX-b.minX)>=16?2:1,sy=(b.maxY-b.minY)>=16?2:1;
+      ctx.fillStyle='#748197';ctx.font='11px system-ui,sans-serif';ctx.textAlign='center';ctx.textBaseline='top';
+      for(let x=b.minX;x<=b.maxX;x++)if(x!==0 && (x%sx===0 || x===b.minX || x===b.maxX)){
+        const q=p.pt(x,0);ctx.fillText(String(x),q.x,Math.min(h-20,Math.max(4,o.y+8)));
+      }
+      ctx.textAlign='right';ctx.textBaseline='middle';
+      for(let y=b.minY;y<=b.maxY;y++)if(y!==0&&(y%sy===0||y===b.minY||y===b.maxY)){
+        const q=p.pt(0,y);ctx.fillText(String(y),Math.max(20,o.x-9),q.y);
+      }
+      ctx.fillStyle='#50617a';ctx.font='bold 12px system-ui,sans-serif';ctx.textAlign='right';ctx.textBaseline='top';
+      ctx.fillText('0',o.x-8,o.y+8);
+      ctx.textAlign='center';ctx.fillText('x',Math.min(w-10,p.right+15),o.y-19);
+      ctx.fillText('y',o.x+13,Math.max(7,p.top-23));
+      // Persisted movement paths, one independent polyline per recording segment.
+      ctx.strokeStyle='#497ee6';ctx.lineWidth=3.8;ctx.lineJoin='round';ctx.lineCap='round';
+      for(const s of state.strokes){
+        if(!s.length)continue;
+        ctx.beginPath();const first=p.pt(s[0].x,s[0].y);ctx.moveTo(first.x,first.y);
+        for(let i=1;i<s.length;i++){const pos=p.pt(s[i].x,s[i].y);ctx.lineTo(pos.x,pos.y);}
+        ctx.stroke();
+        if(s.length===1){ctx.fillStyle='#497ee6';ctx.beginPath();ctx.arc(first.x,first.y,3.2,0,Math.PI*2);ctx.fill();}
+      }
+      if(state.mode==='target' && state.target && state.goalVisible){
+        const pos=p.pt(state.target.x,state.target.y);ctx.save();ctx.fillStyle='rgba(22,163,118,.12)';ctx.strokeStyle='#16a376';ctx.lineWidth=2.6;ctx.setLineDash([5,4]);ctx.beginPath();ctx.arc(pos.x,pos.y,Math.max(12,Math.min(18,p.scale*.45)),0,2*Math.PI);ctx.fill();ctx.stroke();ctx.restore();
+      }
+      if(state.current && state.recognized){
+        const pos=p.pt(state.current.x,state.current.y);
+        ctx.fillStyle='rgba(241,124,69,.18)';ctx.beginPath();ctx.arc(pos.x,pos.y,15,0,2*Math.PI);ctx.fill();
+        ctx.fillStyle='#f17c45';ctx.strokeStyle='white';ctx.lineWidth=3;ctx.beginPath();ctx.arc(pos.x,pos.y,7.6,0,2*Math.PI);ctx.fill();ctx.stroke();
+      }
+    }
+    function updateCameraOverlay(landmarks){
+      const width=video.videoWidth,height=video.videoHeight;
+      if(!width||!height)return;
+      if(overlay.width!==width||overlay.height!==height){overlay.width=width;overlay.height=height;}
+      octx.clearRect(0,0,width,height);
+      if(!landmarks)return;
+      const finger=landmarks[8];const x=finger.x*width,y=finger.y*height;
+      octx.fillStyle='rgba(255,200,92,.22)';octx.beginPath();octx.arc(x,y,23,0,Math.PI*2);octx.fill();
+      octx.fillStyle='#ffd166';octx.strokeStyle='#fff';octx.lineWidth=3;octx.beginPath();octx.arc(x,y,9,0,Math.PI*2);octx.fill();octx.stroke();
+      octx.font='bold 16px sans-serif';octx.fillStyle='#fff';octx.textAlign='left';
+      octx.fillText('검지 끝',Math.min(width-83,x+17),Math.max(20,y-15));
+    }
+    async function ensureModel(){
+      if(state.landmarker)return state.landmarker;
+      setCamStatus('AI 손 인식 모델을 불러오는 중...','wait');
+      const lib=await import(`${MEDIA_CDN}/vision_bundle.mjs`);
+      const vision=await lib.FilesetResolver.forVisionTasks(`${MEDIA_CDN}/wasm`);
+      let instance;
+      const options={baseOptions:{modelAssetPath:MODEL_URL,delegate:'GPU'},runningMode:'VIDEO',numHands:1,minHandDetectionConfidence:.5,minHandPresenceConfidence:.5,minTrackingConfidence:.5};
+      try{instance=await lib.HandLandmarker.createFromOptions(vision,options);}
+      catch(gpuError){
+        console.warn('GPU 초기화 실패, CPU 방식으로 재시도:',gpuError);
+        instance=await lib.HandLandmarker.createFromOptions(vision,{...options,baseOptions:{modelAssetPath:MODEL_URL,delegate:'CPU'}});
+      }
+      state.landmarker=instance;return instance;
+    }
+    function explainCameraError(e){
+      if(e && (e.name==='NotAllowedError'||e.name==='PermissionDeniedError'))return '카메라 권한이 거부되었어요. 브라우저에서 권한을 허용해 주세요.';
+      if(e && (e.name==='NotFoundError'||e.name==='DevicesNotFoundError'))return '연결된 카메라가 없어요. 웹캠을 연결해 주세요.';
+      if(e && (e.name==='NotReadableError'||e.name==='TrackStartError'))return '카메라를 사용할 수 없어요. 다른 앱에서 사용 중인지 확인해 주세요.';
+      if(e && e.name==='SecurityError')return '보안 설정으로 카메라가 차단되었어요. HTTPS 또는 localhost에서 실행해 주세요.';
+      return '카메라나 AI 모델을 시작하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.';
+    }
+    async function startCamera(){
+      if(state.cameraOn||state.starting)return;
+      if(state.demo)setDemo(false);
+      if(!navigator.mediaDevices?.getUserMedia){setCamStatus('이 환경에서는 카메라를 사용할 수 없어요. HTTPS 또는 localhost를 확인해 주세요.','bad');return;}
+      const token=++state.runToken;state.starting=true;
+      $('cameraBtn').disabled=true;$('cameraBtn').textContent='⏳ 연결 중...';
+      setCamStatus('카메라 연결을 요청하는 중...','wait');
+      let localStream=null;
+      try{
+        localStream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:'user',width:{ideal:640},height:{ideal:480},frameRate:{ideal:30,max:30}}});
+        if(token!==state.runToken){localStream.getTracks().forEach(t=>t.stop());return;}
+        state.stream=localStream;video.srcObject=localStream;
+        await video.play();
+        $('cameraStage').classList.add('live');
+        await ensureModel();
+        if(token!==state.runToken)return;
+        state.cameraOn=true;state.lastVideoTime=-1;state.lastDetectTime=-1;
+        setCamStatus('손을 화면에 보여주세요.','wait');
+        localStream.getVideoTracks().forEach(t=>t.addEventListener('ended',()=>{if(state.cameraOn)stopCamera();},{once:true}));
+        predictLoop(token);
+      }catch(e){
+        console.error('카메라/MediaPipe 초기화 실패',e);
+        if(token===state.runToken){stopCamera();setCamStatus(explainCameraError(e),'bad');}
+        else if(localStream)localStream.getTracks().forEach(t=>t.stop());
+      }finally{
+        if(token===state.runToken){state.starting=false;$('cameraBtn').disabled=false;$('cameraBtn').textContent=state.cameraOn?'■ 카메라 끄기':'📷 카메라 켜기';}
+      }
+    }
+    function stopCamera(){
+      state.runToken++;cancelAnimationFrame(state.raf);state.raf=0;
+      state.stream?.getTracks().forEach(t=>t.stop());state.stream=null;
+      video.pause();video.srcObject=null;
+      state.cameraOn=false;state.starting=false;state.lastVideoTime=-1;
+      $('cameraStage').classList.remove('live');
+      octx.clearRect(0,0,overlay.width,overlay.height);
+      $('cameraBtn').disabled=false;$('cameraBtn').textContent='📷 카메라 켜기';
+      stopDrawing();resetTracking();
+      if(!state.demo)setCamStatus('카메라가 꺼져 있어요.');
+    }
+    function predictLoop(token){
+      if(token!==state.runToken||!state.cameraOn)return;
+      const time=performance.now();
+      if(video.readyState>=2 && video.currentTime!==state.lastVideoTime && time-state.lastDetectTime>=32){
+        try{
+          const result=state.landmarker.detectForVideo(video,time);
+          state.lastDetectTime=time;state.lastVideoTime=video.currentTime;
+          const lm=result.landmarks?.[0];
+          if(lm && lm.length>8){updateCameraOverlay(lm);inputFromMediaPipe(lm[8].x,lm[8].y);}
+          else {updateCameraOverlay(null);onHandLost();}
+        }catch(e){console.error('손 인식 중 오류',e);stopCamera();setCamStatus('손 인식 중 오류가 발생했어요. 카메라를 다시 켜 주세요.','bad');return;}
+      }
+      state.raf=requestAnimationFrame(()=>predictLoop(token));
+    }
+    function setDemo(enabled){
+      if(enabled && (state.cameraOn||state.starting))stopCamera();
+      state.demo=enabled;resetTracking();stopDrawing();
+      $('demoBtn').textContent=enabled?'✕ 연습 종료':'🖱️ 마우스 연습';
+      $('demoBtn').className='btn '+(enabled?'success':'ghost');
+      graph.classList.toggle('demo-active',enabled);
+      $('graphDemoNote').hidden=!enabled;
+      $('placeholderTitle').textContent=enabled?'마우스 연습 모드':'손을 보여주세요!';
+      $('placeholderText').innerHTML=enabled?'오른쪽 좌표평면 위에서 마우스를 움직여<br>카메라 없이도 기능을 시험해 보세요.':'카메라를 켠 뒤 검지 끝을 움직이면<br>오른쪽 좌표평면의 점이 따라 움직여요.';
+      setCamStatus(enabled?'마우스 연습 중 · 좌표평면을 움직여 보세요.':'카메라가 꺼져 있어요.',enabled?'good':'idle');
+    }
+    function pointerToPoint(event){
+      if(!state.demo||!state.plot)return;
+      const r=graph.getBoundingClientRect(),p=state.plot,b=p.b;
+      const xx=(event.clientX-r.left)*(graphWidth/r.width), yy=(event.clientY-r.top)*(graphHeight/r.height);
+      const x=clamp(Math.round(b.minX+(xx-p.left)/p.scale),b.minX,b.maxX);
+      const y=clamp(Math.round(b.maxY-(yy-p.top)/p.scale),b.minY,b.maxY);
+      updateCurrent(x,y);
+    }
+    function saveGraph(){
+      const link=document.createElement('a');link.download=`손끝좌표_그래프_${new Date().toISOString().slice(0,10)}.png`;
+      link.href=graph.toDataURL('image/png');document.body.appendChild(link);link.click();link.remove();
+    }
+
+    document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>changeMode(b.dataset.mode)));
+    document.querySelectorAll('[data-target-type]').forEach(b=>b.addEventListener('click',()=>changeTargetType(b.dataset.targetType)));
+    $('rangePreset').addEventListener('change',e=>setRangePreset(e.target.value));
+    $('applyRange').addEventListener('click',()=>{
+      const b=validateCustomRange();
+      if(!b){showError('rangeError','범위는 −10~10의 정수로 설정하고, 최솟값 < 최댓값이며 0을 포함해야 해요.');return;}
+      showError('rangeError','');applyBounds(b,'custom');
+    });
+    for(const id of ['minX','maxX','minY','maxY'])$(id).addEventListener('input',()=>showError('rangeError',''));
+    $('cameraBtn').addEventListener('click',()=>{if(state.cameraOn)stopCamera();else startCamera();});
+    $('demoBtn').addEventListener('click',()=>setDemo(!state.demo));
+    $('exploreReset').addEventListener('click',()=>resetTracking());
+    $('showGoal').addEventListener('change',e=>{state.goalVisible=e.target.checked;requestGraph();});
+    $('newGoal').addEventListener('click',newRandomGoal);
+    $('setGoal').addEventListener('click',manualGoal);
+    $('targetX').addEventListener('input',()=>showError('targetError',''));
+    $('targetY').addEventListener('input',()=>showError('targetError',''));
+    $('drawingBtn').addEventListener('click',toggleDrawing);
+    $('clearDrawing').addEventListener('click',clearDrawing);
+    $('saveDrawing').addEventListener('click',saveGraph);
+    graph.addEventListener('pointermove',pointerToPoint);
+    graph.addEventListener('pointerdown',e=>{if(state.demo){try{graph.setPointerCapture(e.pointerId);}catch{}pointerToPoint(e);}});
+    // Leaving the practice area suspends detection (like moving a hand out of camera view).
+    graph.addEventListener('pointerleave',()=>{if(state.demo)onHandLost();});
+    new ResizeObserver(resizeGraph).observe($('graphStage'));
+    updateRangeUI();updateGoalStatus();changeDrawingButton();changeMode('explore');resizeGraph();
+    window.addEventListener('pagehide',()=>{state.stream?.getTracks().forEach(t=>t.stop());});
+  </script>
+</body>
+</html>
